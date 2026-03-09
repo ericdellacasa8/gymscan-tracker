@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fitness Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+</head>
+<body class="bg-slate-50 min-h-screen">
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <header class="mb-10">
+            <h1 class="text-4xl font-bold text-slate-800 mb-2">Fitness Tracker</h1>
+            <p class="text-slate-600">Upload gym machine screens to automatically track your workouts</p>
+        </header>
+
+        <div class="grid lg:grid-cols-2 gap-8">
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-2xl font-semibold text-slate-800 mb-4">Upload Workout Image</h2>
+                
+                <div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p class="text-blue-800 text-sm font-medium">Metrics should be clearly visible and readable in the upload</p>
+                </div>
+
+                <div id="uploadArea" class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-slate-400 transition-colors cursor-pointer">
+                    <input type="file" id="imageInput" accept="image/*" class="hidden">
+                    <div id="uploadPlaceholder">
+                        <svg class="mx-auto h-16 w-16 text-slate-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <p class="text-slate-600 font-medium mb-1">Click to upload or drag and drop</p>
+                        <p class="text-slate-500 text-sm">PNG, JPG, JPEG up to 10MB</p>
+                    </div>
+                    <div id="imagePreview" class="hidden">
+                        <img id="previewImg" class="max-h-64 mx-auto rounded-lg shadow-md mb-4">
+                        <button id="removeImage" class="text-red-600 hover:text-red-700 text-sm font-medium">Remove Image</button>
+                    </div>
+                </div>
+
+                <button id="analyzeBtn" disabled class="w-full mt-6 bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors">
+                    Analyze Image
+                </button>
+
+                <div id="processingStatus" class="hidden mt-4 bg-slate-100 rounded-lg p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                        <p class="text-slate-700 text-sm font-medium" id="statusText">Processing image...</p>
+                    </div>
+                </div>
+
+                <div id="extractedMetrics" class="hidden mt-6 bg-slate-50 rounded-lg p-5 border border-slate-200">
+                    <h3 class="font-semibold text-slate-800 mb-4">Extracted Metrics</h3>
+                    <div id="metricsList" class="space-y-2 mb-4"></div>
+                    
+                    <div class="border-t border-slate-200 pt-4 mt-4">
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Workout Name</label>
+                        <input type="text" id="workoutName" placeholder="e.g., Leg Press, Treadmill Run..." class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                        <button id="saveWorkout" class="w-full mt-3 bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 transition-colors">
+                            Save Workout
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-slate-800">Saved Workouts</h2>
+                    <span id="workoutCount" class="bg-slate-200 text-slate-700 text-sm font-medium px-3 py-1 rounded-full">0</span>
+                </div>
+
+                <div id="workoutsList" class="space-y-4">
+                    <div class="text-center py-12 text-slate-500">
+                        <svg class="mx-auto h-16 w-16 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        </svg>
+                        <p class="font-medium">No workouts saved yet</p>
+                        <p class="text-sm mt-1">Upload an image to get started</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div id="editModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 class="text-xl font-semibold text-slate-800 mb-4">Edit Workout</h3>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Workout Name</label>
+                <input type="text" id="editWorkoutName" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+            </div>
+
+            <div id="editMetricsList" class="space-y-3 mb-6"></div>
+
+            <div class="flex gap-3">
+                <button id="cancelEdit" class="flex-1 bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-lg hover:bg-slate-300 transition-colors">
+                    Cancel
+                </button>
+                <button id="saveEdit" class="flex-1 bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'fitnessWorkouts';
+        let currentMetrics = {};
+        let editingWorkoutId = null;
+
+        const imageInput = document.getElementById('imageInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const imagePreview = document.getElementById('imagePreview');
+        const previewImg = document.getElementById('previewImg');
+        const removeImageBtn = document.getElementById('removeImage');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const processingStatus = document.getElementById('processingStatus');
+        const statusText = document.getElementById('statusText');
+        const extractedMetrics = document.getElementById('extractedMetrics');
+        const metricsList = document.getElementById('metricsList');
+        const workoutName = document.getElementById('workoutName');
+        const saveWorkoutBtn = document.getElementById('saveWorkout');
+        const workoutsList = document.getElementById('workoutsList');
+        const workoutCount = document.getElementById('workoutCount');
+        const editModal = document.getElementById('editModal');
+        const editWorkoutName = document.getElementById('editWorkoutName');
+        const editMetricsList = document.getElementById('editMetricsList');
+        const cancelEditBtn = document.getElementById('cancelEdit');
+        const saveEditBtn = document.getElementById('saveEdit');
+
+        uploadArea.addEventListener('click', () => imageInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('border-blue-500', 'bg-blue-50');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('border-blue-500', 'bg-blue-50');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('border-blue-500', 'bg-blue-50');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleImageSelect(file);
+            }
+        });
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleImageSelect(file);
+        });
+
+        removeImageBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetUpload();
+        });
+
+        analyzeBtn.addEventListener('click', analyzeImage);
+        saveWorkoutBtn.addEventListener('click', saveWorkout);
+        cancelEditBtn.addEventListener('click', () => editModal.classList.add('hidden'));
+        saveEditBtn.addEventListener('click', saveEditedWorkout);
+
+        function handleImageSelect(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                uploadPlaceholder.classList.add('hidden');
+                imagePreview.classList.remove('hidden');
+                analyzeBtn.disabled = false;
+                extractedMetrics.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetUpload() {
+            imageInput.value = '';
+            uploadPlaceholder.classList.remove('hidden');
+            imagePreview.classList.add('hidden');
+            analyzeBtn.disabled = true;
+            extractedMetrics.classList.add('hidden');
+            currentMetrics = {};
+        }
+
+        async function analyzeImage() {
+            processingStatus.classList.remove('hidden');
+            analyzeBtn.disabled = true;
+            statusText.textContent = 'Processing image...';
+
+            try {
+                const result = await Tesseract.recognize(previewImg.src, 'eng', {
+                    logger: (m) => {
+                        if (m.status === 'recognizing text') {
+                            statusText.textContent = `Analyzing: ${Math.round(m.progress * 100)}%`;
+                        }
+                    }
+                });
+
+                console.log('Full OCR result:', result.data);
+                currentMetrics = extractMetricsFromOCR(result.data);
+
+                displayMetrics(currentMetrics);
+                processingStatus.classList.add('hidden');
+                extractedMetrics.classList.remove('hidden');
+                analyzeBtn.disabled = false;
+            } catch (error) {
+                console.error('OCR Error:', error);
+                statusText.textContent = 'Error processing image. Please try again.';
+                analyzeBtn.disabled = false;
+                setTimeout(() => processingStatus.classList.add('hidden'), 2000);
+            }
+        }
+
+        function extractMetricsFromOCR(ocrData) {
+            const metrics = {};
+            const words = ocrData.words || [];
+            
+            const labelPatterns = [
+                { label: 'calories', keywords: ['calories', 'cal', 'kcal'], unit: 'cal' },
+                { label: 'distance', keywords: ['distance', 'dist'], unit: 'km' },
+                { label: 'incline', keywords: ['incline', 'slope'], unit: '%' },
+                { label: 'time', keywords: ['time', 'elapsed', 'remaining'], unit: '' },
+                { label: 'speed', keywords: ['speed'], unit: 'km/h' },
+                { label: 'pace', keywords: ['pace'], unit: 'min/km' },
+                { label: 'heart_rate', keywords: ['heart', 'rate', 'bpm'], unit: 'bpm' },
+                { label: 'weight', keywords: ['weight', 'wt', 'load'], unit: 'kg' },
+                { label: 'reps', keywords: ['reps', 'repetitions'], unit: '' },
+                { label: 'sets', keywords: ['sets'], unit: '' },
+                { label: 'resistance', keywords: ['resistance', 'level'], unit: '' }
+            ];
+
+            const allNumbers = [];
+            const labels = [];
+            let consecutiveNumbers = [];
+
+            words.forEach((word, index) => {
+                const text = word.text.trim();
+                const isDigitOrSeparator = /^[\d.:]+$/.test(text);
+                
+                if (isDigitOrSeparator) {
+                    consecutiveNumbers.push({
+                        text: text,
+                        x: word.bbox.x0,
+                        y: word.bbox.y0,
+                        index: index
+                    });
+                } else {
+                    if (consecutiveNumbers.length > 0) {
+                        const combined = consecutiveNumbers.map(n => n.text).join('');
+                        const avgX = consecutiveNumbers.reduce((sum, n) => sum + n.x, 0) / consecutiveNumbers.length;
+                        const avgY = consecutiveNumbers.reduce((sum, n) => sum + n.y, 0) / consecutiveNumbers.length;
+                        const firstIndex = consecutiveNumbers[0].index;
+                        
+                        allNumbers.push({
+                            value: combined,
+                            x: avgX,
+                            y: avgY,
+                            index: firstIndex,
+                            raw: combined
+                        });
+                        consecutiveNumbers = [];
+                    }
+
+                    const lowerText = text.toLowerCase();
+                    for (const pattern of labelPatterns) {
+                        for (const keyword of pattern.keywords) {
+                            if (lowerText.includes(keyword)) {
+                                labels.push({
+                                    label: pattern.label,
+                                    unit: pattern.unit,
+                                    x: word.bbox.x0,
+                                    y: word.bbox.y0,
+                                    index: index,
+                                    keyword: keyword
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (consecutiveNumbers.length > 0) {
+                const combined = consecutiveNumbers.map(n => n.text).join('');
+                const avgX = consecutiveNumbers.reduce((sum, n) => sum + n.x, 0) / consecutiveNumbers.length;
+                const avgY = consecutiveNumbers.reduce((sum, n) => sum + n.y, 0) / consecutiveNumbers.length;
+                const firstIndex = consecutiveNumbers[0].index;
+                
+                allNumbers.push({
+                    value: combined,
+                    x: avgX,
+                    y: avgY,
+                    index: firstIndex,
+                    raw: combined
+                });
+            }
+
+            console.log('Detected numbers (preserved format):', allNumbers);
+            console.log('Detected labels:', labels);
+
+            for (const label of labels) {
+                let closestNumber = null;
+                let minDistance = Infinity;
+
+                for (const number of allNumbers) {
+                    if (metrics[label.label]) continue;
+                    
+                    const distance = Math.sqrt(
+                        Math.pow(number.x - label.x, 2) + 
+                        Math.pow(number.y - label.y, 2)
+                    );
+                    
+                    const indexDistance = Math.abs(number.index - label.index);
+                    const combinedDistance = distance + (indexDistance * 10);
+
+                    if (combinedDistance < minDistance) {
+                        minDistance = combinedDistance;
+                        closestNumber = number;
+                    }
+                }
+
+                if (closestNumber && minDistance < 500) {
+                    metrics[label.label] = {
+                        value: closestNumber.value,
+                        unit: label.unit
+                    };
+                }
+            }
+
+            const unmatchedNumbers = allNumbers.filter(num => {
+                return !Object.values(metrics).some(m => m.value === num.value);
+            });
+
+            unmatchedNumbers.forEach((num, idx) => {
+                const key = `value_${idx + 1}`;
+                metrics[key] = {
+                    value: num.value,
+                    unit: ''
+                };
+            });
+
+            console.log('Final metrics:', metrics);
+            return metrics;
+        }
+
+        function getDefaultUnit(metricType) {
+            const defaults = {
+                weight: 'kg',
+                reps: '',
+                sets: '',
+                duration: 'min',
+                distance: 'km',
+                calories: 'cal',
+                resistance: '',
+                speed: 'km/h',
+                heartrate: 'bpm',
+                incline: '%'
+            };
+            return defaults[metricType] || '';
+        }
+
+        function displayMetrics(metrics) {
+            metricsList.innerHTML = '';
+            
+            if (Object.keys(metrics).length === 0) {
+                metricsList.innerHTML = '<p class="text-slate-600 text-sm">No metrics detected. Please try another image.</p>';
+                return;
+            }
+
+            for (const [key, data] of Object.entries(metrics)) {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center bg-white px-4 py-2.5 rounded-lg border border-slate-200';
+                div.innerHTML = `
+                    <span class="text-slate-700 font-medium capitalize">${key.replace(/([A-Z])/g, ' $1')}</span>
+                    <span class="text-slate-900 font-semibold">${data.value} ${data.unit}</span>
+                `;
+                metricsList.appendChild(div);
+            }
+        }
+
+        function saveWorkout() {
+            const name = workoutName.value.trim();
+            if (!name) {
+                alert('Please enter a workout name');
+                return;
+            }
+
+            if (Object.keys(currentMetrics).length === 0) {
+                alert('No metrics to save');
+                return;
+            }
+
+            const workout = {
+                id: Date.now(),
+                name,
+                metrics: currentMetrics,
+                date: new Date().toISOString()
+            };
+
+            const workouts = getWorkouts();
+            workouts.unshift(workout);
+            saveWorkouts(workouts);
+
+            workoutName.value = '';
+            resetUpload();
+            renderWorkouts();
+        }
+
+        function getWorkouts() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveWorkouts(workouts) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(workouts));
+        }
+
+        function renderWorkouts() {
+            const workouts = getWorkouts();
+            workoutCount.textContent = workouts.length;
+
+            if (workouts.length === 0) {
+                workoutsList.innerHTML = `
+                    <div class="text-center py-12 text-slate-500">
+                        <svg class="mx-auto h-16 w-16 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        </svg>
+                        <p class="font-medium">No workouts saved yet</p>
+                        <p class="text-sm mt-1">Upload an image to get started</p>
+                    </div>
+                `;
+                return;
+            }
+
+            workoutsList.innerHTML = workouts.map(workout => `
+                <div class="border border-slate-200 rounded-lg p-5 bg-slate-50 hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h3 class="font-semibold text-slate-800 text-lg">${workout.name}</h3>
+                            <p class="text-slate-500 text-xs mt-1">${new Date(workout.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="editWorkout(${workout.id})" class="text-blue-600 hover:text-blue-700 p-1.5 hover:bg-blue-50 rounded transition-colors" title="Edit">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </button>
+                            <button onclick="deleteWorkout(${workout.id})" class="text-red-600 hover:text-red-700 p-1.5 hover:bg-red-50 rounded transition-colors" title="Delete">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${Object.entries(workout.metrics).map(([key, data]) => `
+                            <div class="bg-white px-3 py-2 rounded border border-slate-200">
+                                <p class="text-xs text-slate-600 capitalize">${key.replace(/([A-Z])/g, ' $1')}</p>
+                                <p class="font-semibold text-slate-900 mt-0.5">${data.value} ${data.unit}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteWorkout(id) {
+            if (!confirm('Are you sure you want to delete this workout?')) return;
+            
+            const workouts = getWorkouts().filter(w => w.id !== id);
+            saveWorkouts(workouts);
+            renderWorkouts();
+        }
+
+        function editWorkout(id) {
+            const workouts = getWorkouts();
+            const workout = workouts.find(w => w.id === id);
+            if (!workout) return;
+
+            editingWorkoutId = id;
+            editWorkoutName.value = workout.name;
+            
+            editMetricsList.innerHTML = Object.entries(workout.metrics).map(([key, data]) => `
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1 capitalize">${key.replace(/([A-Z])/g, ' $1')}</label>
+                    <div class="flex gap-2">
+                        <input type="text" data-metric="${key}" data-field="value" value="${data.value}" class="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm">
+                        <input type="text" data-metric="${key}" data-field="unit" value="${data.unit}" placeholder="Unit" class="w-20 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm">
+                    </div>
+                </div>
+            `).join('');
+
+            editModal.classList.remove('hidden');
+        }
+
+        function saveEditedWorkout() {
+            const workouts = getWorkouts();
+            const workout = workouts.find(w => w.id === editingWorkoutId);
+            if (!workout) return;
+
+            workout.name = editWorkoutName.value.trim();
+            
+            const inputs = editMetricsList.querySelectorAll('input');
+            inputs.forEach(input => {
+                const metric = input.dataset.metric;
+                const field = input.dataset.field;
+                if (!workout.metrics[metric]) workout.metrics[metric] = {};
+                workout.metrics[metric][field] = input.value.trim();
+            });
+
+            saveWorkouts(workouts);
+            editModal.classList.add('hidden');
+            editingWorkoutId = null;
+            renderWorkouts();
+        }
+
+        renderWorkouts();
+    </script>
+</body>
+</html>
